@@ -1,34 +1,16 @@
 import { useEffect, useRef, useState } from 'react'
 import { fetchMovies } from './utils/fetchMovies'
+import { Movies } from './components/Movies'
 
-function App () {
+const useSearch = () => {
   const [search, setSearch] = useState('')
   const [error, setError] = useState(null)
   const isFirstInput = useRef(true)
 
-  const [movies, setMovies] = useState([])
-  const prevSearch = useRef('')
-
   const updateSearch = (event) => {
     const newSearch = event.target.value
+    if (newSearch.startsWith(' ')) return
     setSearch(newSearch)
-  }
-
-  const getMovies = async ({ search, error }) => {
-    try {
-      if (search === prevSearch.current || error) return
-
-      const newMovies = await fetchMovies({ search })
-      setMovies(newMovies)
-      prevSearch.current = search
-    } catch (error) {
-      console.log(error.message)
-    }
-  }
-
-  const handleSubmit = (event) => {
-    event.preventDefault()
-    getMovies({ search, error })
   }
 
   useEffect(() => {
@@ -49,6 +31,39 @@ function App () {
     setError(null)
   }, [search])
 
+  return { search, updateSearch, error }
+}
+
+const useMovies = () => {
+  const [movies, setMovies] = useState([])
+  const [loading, setLoading] = useState(false)
+  const prevSearch = useRef('')
+
+  const getMovies = async ({ search, error }) => {
+    try {
+      if (search === prevSearch.current || error) return
+      setLoading(true)
+      const newMovies = await fetchMovies({ search })
+      setMovies(newMovies)
+      prevSearch.current = search
+    } catch (error) {
+      console.error(error.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+  return { movies, getMovies, loading }
+}
+
+function App () {
+  const { search, error, updateSearch } = useSearch()
+  const { movies, getMovies, loading } = useMovies()
+
+  const handleSubmit = (event) => {
+    event.preventDefault()
+    getMovies({ search, error })
+  }
+
   return (
     <>
       <header>
@@ -65,19 +80,12 @@ function App () {
       </header>
       <main>
         <section>
-          <ul>
-            {
-              movies.map(movie => (
-                <li key={movie.id}>
-                  <img src={movie.image} alt={movie.Title} />
-                  <div>
-                    <h2>{movie.title}</h2>
-                    <p>{movie.year}</p>
-                  </div>
-                </li>
-              ))
-            }
-          </ul>
+          {
+            loading
+              ? <p>Cargando</p>
+              : <Movies movies={movies} />
+          }
+
         </section>
       </main>
     </>
